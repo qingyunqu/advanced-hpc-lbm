@@ -21,7 +21,7 @@ REF_AV_VELS_FILE=check/128x128.av_vels.dat
 all: $(EXE)
 
 $(EXE): $(EXE).c
-	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
+	$(CC) $(CFLAGS) -L$(CUDA_HOME)/lib64 -I$(CUDA_HOME)/include $^ $(LIBS) -o $@
 
 check:
 	python check/check.py --ref-av-vels-file=$(REF_AV_VELS_FILE) --ref-final-state-file=$(REF_FINAL_STATE_FILE) --av-vels-file=$(AV_VELS_FILE) --final-state-file=$(FINAL_STATE_FILE)
