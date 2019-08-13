@@ -97,6 +97,7 @@ typedef struct
   cl_mem cells;
   cl_mem tmp_cells;
   cl_mem obstacles;
+  cl_mem av_t_cl;
 } t_ocl;
 
 /* struct to hold the 'speed' values */
@@ -198,20 +199,14 @@ int main(int argc, char* argv[])
     sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
   checkError(err, "writing obstacles data", __LINE__);
 
+  ocl.av_t_cl =  clCreateBuffer(ocl.context, CL_MEM_READ_WRITE,
+                      sizeof(float) * params.nx * params.ny , NULL, &err);
+  checkError(err, "creating cells buffer", __LINE__);
+
   for (int tt = 0; tt < params.maxIters; tt++)
   {
     timestep(params, cells, tmp_cells, obstacles, ocl);
     av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
-
-    // Read tmp_cells from device
-    err = clEnqueueReadBuffer(
-      ocl.queue, ocl.cells, CL_TRUE, 0,
-      sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-    checkError(err, "reading cells data", __LINE__);
-    err = clEnqueueReadBuffer(
-      ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
-      sizeof(t_speed) * params.nx * params.ny, tmp_cells, 0, NULL, NULL);
-    checkError(err, "reading tmp_cells data", __LINE__);
 
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
@@ -219,6 +214,12 @@ int main(int argc, char* argv[])
     printf("tot density: %.12E\n", total_density(params, cells));
 #endif
   }
+
+  // Read tmp_cells from device
+  err = clEnqueueReadBuffer(
+  ocl.queue, ocl.cells, CL_TRUE, 0,
+  sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+  checkError(err, "reading cells data", __LINE__);
 
   gettimeofday(&timstr, NULL);
   toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
@@ -242,14 +243,6 @@ int main(int argc, char* argv[])
 
 int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
-  cl_int err;
-
-  // Write cells to device
-  err = clEnqueueWriteBuffer(
-    ocl.queue, ocl.cells, CL_TRUE, 0,
-    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  checkError(err, "writing cells data", __LINE__);
-
   accelerate_flow(params, cells, obstacles, ocl);
   propagate(params, cells, tmp_cells, ocl);
   rebound(params, cells, tmp_cells, obstacles, ocl);
@@ -336,9 +329,9 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
   err = clSetKernelArg(ocl.rebound, 3, sizeof(cl_int), &params.nx);
   checkError(err, "setting rebound arg 3", __LINE__);
 
-  size_t global[2] = {params.nx, params.ny};
+  size_t global[1] = {params.nx * params.ny};
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.rebound,
-                               2, NULL, global, NULL, 0, NULL, NULL);
+                               1, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing rebound kernel", __LINE__);
 
   err = clFinish(ocl.queue);
@@ -374,9 +367,9 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
   err = clSetKernelArg(ocl.collision, 8, sizeof(cl_float), &w2);
   checkError(err, "setting collision arg 8", __LINE__);
 
-  size_t global[2] = {params.nx, params.ny};
+  size_t global[1] = {params.nx * params.ny};
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.collision,
-                               2, NULL, global, NULL, 0, NULL, NULL);
+                               1, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing collision kernel", __LINE__);
 
   err = clFinish(ocl.queue);
@@ -388,30 +381,42 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
   cl_int err;
+  /*size_t work_group_size, nwork_groups;
 
-  cl_mem av_t_cl =  clCreateBuffer(ocl.context, CL_MEM_READ_WRITE,
-                      sizeof(float) * params.nx * params.ny , NULL, &err);
-  checkError(err, "creating cells buffer", __LINE__);
-
+  err = clGetKernelWorkGroupInfo(ocl.av_velocity, ocl.device, CL_KERNEL_WORK_GROUP_SIZE,
+        sizeof(size_t), &work_group_size, NULL);
+  checkError(err, "gettin kernel work group info", __LINE__);
+  err = clGetDeviceInfo(ocl.device, CL_DEVICE_MAX_COMPUTE_UNITS,
+        sizeof(size_t), &nwork_groups, NULL);
+  checkError(err, "getting device compute unit info", __LINE__);
+  if(params.nx * params.ny < work_group_size * nwork_groups){
+    printf("params.nx: %d\n", params.nx);
+    printf("params.ny: %d\n", params.ny);
+    printf("work_group_size: %d\n", work_group_size);
+    printf("nwork_groups: %d\n", nwork_groups);
+    work_group_size = params.nx * params.ny / nwork_groups;
+    printf("work_group_size: %d\n", work_group_size);
+    exit(EXIT_FAILURE);
+  }*/
   err = clSetKernelArg(ocl.av_velocity, 0, sizeof(cl_mem), &ocl.cells);
   checkError(err, "setting av_velocity arg 0", __LINE__);
   err = clSetKernelArg(ocl.av_velocity, 1, sizeof(cl_mem), &ocl.obstacles);
   checkError(err, "setting av_velocity arg 1", __LINE__);
-  err = clSetKernelArg(ocl.av_velocity, 2, sizeof(cl_mem), &av_t_cl);
+  err = clSetKernelArg(ocl.av_velocity, 2, sizeof(cl_mem), &ocl.av_t_cl);
   checkError(err, "setting av_velocity arg 2", __LINE__);
   err = clSetKernelArg(ocl.av_velocity, 3, sizeof(cl_int), &params.nx);
   checkError(err, "setting av_velocity arg 3", __LINE__);
 
-  size_t global[2] = {params.nx, params.ny};
+  size_t global[1] = {params.nx * params.ny};
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.av_velocity,
-                               2, NULL, global, NULL, 0, NULL, NULL);
+                               1, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing av_velocity kernel", __LINE__);
 
   err = clFinish(ocl.queue);
   checkError(err, "waiting for av_velocity kernel", __LINE__);
 
   float* av_t = (float*)malloc(sizeof(float)*params.nx*params.ny);
-  err = clEnqueueReadBuffer(ocl.queue, av_t_cl , CL_TRUE, 0,
+  err = clEnqueueReadBuffer(ocl.queue, ocl.av_t_cl , CL_TRUE, 0,
       sizeof(float) * params.nx * params.ny, av_t, 0, NULL, NULL);
   checkError(err, "reading av_t data", __LINE__);
 
@@ -428,6 +433,7 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl oc
     }
   }
   sum = sum / cnt;
+  free(av_t);
   return sum;
 }
 

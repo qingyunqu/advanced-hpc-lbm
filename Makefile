@@ -26,6 +26,10 @@ $(EXE): $(EXE).c
 check:
 	python check/check.py --ref-av-vels-file=$(REF_AV_VELS_FILE) --ref-final-state-file=$(REF_FINAL_STATE_FILE) --av-vels-file=$(AV_VELS_FILE) --final-state-file=$(FINAL_STATE_FILE)
 
+check256:
+	python check/check.py --ref-av-vels-file=check/256x256.av_vels.dat --ref-final-state-file=check/256x256.final_state.dat --av-vels-file=$(AV_VELS_FILE) --final-state-file=$(FINAL_STATE_FILE)
+
+
 .PHONY: all check clean
 
 clean:
