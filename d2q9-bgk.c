@@ -293,10 +293,6 @@ int accelerate_flow(const t_param params, t_ocl ocl)
                                1, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
 
-  // Wait for kernel to finish
-  err = clFinish(ocl.queue);
-  checkError(err, "waiting for accelerate_flow kernel", __LINE__);
-
   return EXIT_SUCCESS;
 }
 
@@ -321,10 +317,6 @@ int propagate(const t_param params, t_ocl ocl)
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate,
                                2, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing propagate kernel", __LINE__);
-
-  // Wait for kernel to finish
-  err = clFinish(ocl.queue);
-  checkError(err, "waiting for propagate kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
@@ -361,9 +353,6 @@ int collision(const t_param params, t_ocl ocl)
                                1, NULL, global, NULL, 0, NULL, NULL);
   checkError(err, "enqueueing collision kernel", __LINE__);
 
-  err = clFinish(ocl.queue);
-  checkError(err, "waiting for collision kernel", __LINE__);
-
   return EXIT_SUCCESS;
 }
 
@@ -390,9 +379,6 @@ float av_velocity(const t_param params, t_ocl ocl)
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.av_velocity,
                                1, NULL, global, &ocl.work_group_size, 0, NULL, NULL);
   checkError(err, "enqueueing av_velocity kernel", __LINE__);
-
-  err = clFinish(ocl.queue);
-  checkError(err, "waiting for av_velocity kernel", __LINE__);
 
   err = clEnqueueReadBuffer(ocl.queue, ocl.av_t , CL_TRUE, 0,
       sizeof(float) * ocl.nwork_groups * 2, av_t, 0, NULL, NULL);
