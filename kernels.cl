@@ -12,7 +12,6 @@ kernel void accelerate_flow(global t_speed* cells,
                             int nx, int jj,
                             float w1, float w2)
 {
-  /* get column index */
   int ii = get_global_id(0);
 
   /* if the cell is not occupied and
@@ -41,7 +40,6 @@ kernel void propagate(global t_speed* cells,
                       global int* obstacles,
                       int nx, int ny)
 {
-  /* get column and row indices */
   int ii = get_global_id(0);
   int jj = get_global_id(1);
 
@@ -68,7 +66,7 @@ kernel void propagate(global t_speed* cells,
   tmp_cells[ii + jj*nx] = tmp_cell;
 }
 
-kernel void rebound(global t_speed* cells,
+/*kernel void rebound(global t_speed* cells,
                     global t_speed* tmp_cells,
                     global int* obstacles,
                     int nx)
@@ -90,7 +88,7 @@ kernel void rebound(global t_speed* cells,
 
     cells[ii] = cell;
   }
-}
+}*/
 
 kernel void collision(global t_speed* cells,
                       global t_speed* tmp_cells,
@@ -100,6 +98,22 @@ kernel void collision(global t_speed* cells,
                       float w1, float w2)
 {
   int ii = get_global_id(0);
+
+  // rebound
+  if(obstacles[ii])
+  {
+    t_speed cell;
+    t_speed tmp_cell = tmp_cells[ii];
+    cell.speeds[1] = tmp_cell.speeds[3];
+    cell.speeds[2] = tmp_cell.speeds[4];
+    cell.speeds[3] = tmp_cell.speeds[1];
+    cell.speeds[4] = tmp_cell.speeds[2];
+    cell.speeds[5] = tmp_cell.speeds[7];
+    cell.speeds[6] = tmp_cell.speeds[8];
+    cell.speeds[7] = tmp_cell.speeds[5];
+    cell.speeds[8] = tmp_cell.speeds[6];
+    cells[ii] = cell;
+  }
 
   if (!obstacles[ii])
   {

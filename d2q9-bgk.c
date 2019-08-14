@@ -90,7 +90,7 @@ typedef struct
   cl_program program;
   cl_kernel  accelerate_flow;
   cl_kernel  propagate;
-  cl_kernel  rebound;
+  //cl_kernel  rebound;
   cl_kernel  collision;
   cl_kernel  av_velocity;
 
@@ -123,11 +123,11 @@ int initialise(const char* paramfile, const char* obstaclefile,
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl ocl);
-int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
+int timestep(const t_param params, t_ocl ocl);
+int accelerate_flow(const t_param params, t_ocl ocl);
+int propagate(const t_param params, t_ocl ocl);
+//int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
+int collision(const t_param params, t_ocl ocl);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
@@ -139,7 +139,7 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
 float total_density(const t_param params, t_speed* cells);
 
 /* compute average velocity */
-float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
+float av_velocity(const t_param params, t_ocl ocl);
 
 /* calculate Reynolds number */
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
@@ -212,12 +212,12 @@ int main(int argc, char* argv[])
 
   ocl.av_t =  clCreateBuffer(ocl.context, CL_MEM_READ_WRITE,
                       sizeof(float) * ocl.nwork_groups * 2, NULL, &err);
-  checkError(err, "creating av_t_cl buffer", __LINE__);
+  checkError(err, "creating av_t buffer", __LINE__);
 
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    timestep(params, cells, tmp_cells, obstacles, ocl);
-    av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
+    timestep(params, ocl);
+    av_vels[tt] = av_velocity(params, ocl);
 
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
@@ -252,17 +252,17 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 }
 
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
+int timestep(const t_param params, t_ocl ocl)
 {
-  accelerate_flow(params, cells, obstacles, ocl);
-  propagate(params, cells, tmp_cells, ocl);
-  rebound(params, cells, tmp_cells, obstacles, ocl);
-  collision(params, cells, tmp_cells, obstacles, ocl);
+  accelerate_flow(params,  ocl);
+  propagate(params, ocl);
+  //rebound(params, cells, tmp_cells, obstacles, ocl);
+  collision(params, ocl);
 
   return EXIT_SUCCESS;
 }
 
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
+int accelerate_flow(const t_param params, t_ocl ocl)
 {
   /* compute weighting factors */
   float w1 = params.density * params.accel / 9.0f;
@@ -298,7 +298,7 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl 
   return EXIT_SUCCESS;
 }
 
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl ocl)
+int propagate(const t_param params, t_ocl ocl)
 {
   cl_int err;
 
@@ -327,7 +327,7 @@ int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl oc
   return EXIT_SUCCESS;
 }
 
-int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
+/*int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
   cl_int err;
 
@@ -349,9 +349,9 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
   checkError(err, "waiting for rebound kernel", __LINE__);
 
   return EXIT_SUCCESS;
-}
+}*/
 
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
+int collision(const t_param params, t_ocl ocl)
 {
   float c_sq = 1.f / 3.f;
   float w0 = 4.f / 9.f;
@@ -389,7 +389,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
   return EXIT_SUCCESS;
 }
 
-float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
+float av_velocity(const t_param params, t_ocl ocl)
 {
   cl_int err;
 
@@ -640,8 +640,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating accelerate_flow kernel", __LINE__);
   ocl->propagate = clCreateKernel(ocl->program, "propagate", &err);
   checkError(err, "creating propagate kernel", __LINE__);
-  ocl->rebound = clCreateKernel(ocl->program, "rebound", &err);
-  checkError(err, "creating rebound kernel", __LINE__);
+  /*ocl->rebound = clCreateKernel(ocl->program, "rebound", &err);
+  checkError(err, "creating rebound kernel", __LINE__);*/
   ocl->collision = clCreateKernel(ocl->program, "collision", &err);
   checkError(err, "creating collision kernel", __LINE__);
   ocl->av_velocity = clCreateKernel(ocl->program, "av_velocity", &err);
@@ -699,7 +699,7 @@ float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl 
 {
   const float viscosity = 1.f / 6.f * (2.f / params.omega - 1.f);
 
-  return av_velocity(params, cells, obstacles, ocl) * params.reynolds_dim / viscosity;
+  return av_velocity(params, ocl) * params.reynolds_dim / viscosity;
 }
 
 float total_density(const t_param params, t_speed* cells)
