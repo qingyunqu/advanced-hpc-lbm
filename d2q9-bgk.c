@@ -103,6 +103,8 @@ typedef struct
   size_t work_group_size;
 } t_ocl;
 
+float* av_t;
+
 /* struct to hold the 'speed' values */
 typedef struct
 {
@@ -215,6 +217,7 @@ int main(int argc, char* argv[])
   ocl.av_t =  clCreateBuffer(ocl.context, CL_MEM_READ_WRITE,
                       sizeof(float) * ocl.nwork_groups * 2, NULL, &err);
   checkError(err, "creating av_t buffer", __LINE__);
+  av_t = (float*)malloc(sizeof(float) * ocl.nwork_groups * 2);
 
   for (int tt = 0; tt < params.maxIters; tt++)
   {
@@ -393,6 +396,10 @@ int collision(const t_param params, t_ocl ocl)
 float av_velocity(const t_param params, t_ocl ocl)
 {
   cl_int err;
+  memset(av_t, 0, sizeof(float)*ocl.nwork_groups*2);
+  err = clEnqueueWriteBuffer(ocl.queue, ocl.av_t, CL_TRUE, 0,
+          sizeof(float) * ocl.nwork_groups * 2, av_t, 0, NULL, NULL);
+  checkError(err, "writing av_t zeros", __LINE__);
 
   err = clSetKernelArg(ocl.av_velocity, 0, sizeof(cl_mem), &ocl.cells);
   checkError(err, "setting av_velocity arg 0", __LINE__);
@@ -402,7 +409,7 @@ float av_velocity(const t_param params, t_ocl ocl)
   checkError(err, "setting av_velocity arg 2", __LINE__);
   err = clSetKernelArg(ocl.av_velocity, 3, sizeof(cl_int), &params.nx);
   checkError(err, "setting av_velocity arg 3", __LINE__);
-  err = clSetKernelArg(ocl.av_velocity, 4, sizeof(cl_float) * ocl.work_group_size, NULL);
+  err = clSetKernelArg(ocl.av_velocity, 4, sizeof(cl_float) * ocl.work_group_size * 2, NULL);
   checkError(err, "setting av_velocity arg 4", __LINE__);
 
   size_t global[1] = {params.nx * params.ny};
@@ -413,7 +420,6 @@ float av_velocity(const t_param params, t_ocl ocl)
   err = clFinish(ocl.queue);
   checkError(err, "waiting for av_velocity kernel", __LINE__);
 
-  float* av_t = (float*)malloc(sizeof(float) * ocl.nwork_groups * 2);
   err = clEnqueueReadBuffer(ocl.queue, ocl.av_t , CL_TRUE, 0,
       sizeof(float) * ocl.nwork_groups * 2, av_t, 0, NULL, NULL);
   checkError(err, "reading av_t data", __LINE__);
@@ -424,9 +430,10 @@ float av_velocity(const t_param params, t_ocl ocl)
   {
     sum += av_t[ii];
     cnt += av_t[ii+1];
+    //printf("part_sum: %f\n", av_t[ii]);
+    //printf("part_cnt: %f\n", av_t[ii+1]);
   }
   sum = sum / cnt;
-  free(av_t);
   return sum;
 }
 
