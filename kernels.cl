@@ -178,11 +178,15 @@ kernel void collision(global t_speed* cells,
 kernel void av_velocity(global t_speed* cells,
                         global int* obstacles,
                         global float* av_t,
-                        int nx)
+                        int nx,
+                        local float* local_sum)
 {
   float tot_u = 0.f;
 
   int ii = get_global_id(0);
+  int local_id = get_local_id(0);
+  int local_size = get_local_size(0);
+  int group_id = get_group_id(0);
 
   if (!obstacles[ii])
   {
@@ -206,10 +210,24 @@ kernel void av_velocity(global t_speed* cells,
                     + cell.speeds[7]
                     + cell.speeds[8]))
                 / local_density;
-    av_t[ii] = sqrt((u_x * u_x) + (u_y * u_y));
+    local_sum[local_id] = sqrt((u_x * u_x) + (u_y * u_y));
   }
   else
   {
-    av_t[ii] = -1.f;
+    local_sum[local_id] = -1.f;
+  }
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+
+  if(local_id == 0){
+    av_t[2 * group_id] = 0.f;
+    av_t[2 * group_id+1] = 0.f;
+    for(int jj = 0; jj < local_size; jj++)
+    {
+        if(local_sum[jj]!=-1.f){
+            av_t[2 * group_id] += local_sum[jj];
+            av_t[2 * group_id + 1] += 1.f;
+        }
+    }
   }
 }
