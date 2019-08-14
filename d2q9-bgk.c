@@ -206,6 +206,8 @@ int main(int argc, char* argv[])
         sizeof(size_t), &ocl.work_group_size, NULL);
   checkError(err, "gettin kernel work group info", __LINE__);
   ocl.nwork_groups = params.nx * params.ny / ocl.work_group_size;
+  printf("work_group_size: %ld\n", ocl.work_group_size);
+  printf("nwork_groups: %ld\n", ocl.nwork_groups);
   /*err = clGetDeviceInfo(ocl.device, CL_DEVICE_MAX_COMPUTE_UNITS,
         sizeof(size_t), &nwork_groups, NULL);
   checkError(err, "getting device compute unit info", __LINE__);*/
@@ -227,9 +229,8 @@ int main(int argc, char* argv[])
   }
 
   // Read tmp_cells from device
-  err = clEnqueueReadBuffer(
-  ocl.queue, ocl.cells, CL_TRUE, 0,
-  sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+  err = clEnqueueReadBuffer(ocl.queue, ocl.cells, CL_TRUE, 0,
+        sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
   checkError(err, "reading cells data", __LINE__);
 
   gettimeofday(&timstr, NULL);

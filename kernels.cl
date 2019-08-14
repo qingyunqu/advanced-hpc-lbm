@@ -114,8 +114,8 @@ kernel void collision(global t_speed* cells,
     cell.speeds[8] = tmp_cell.speeds[6];
     cells[ii] = cell;
   }
-
-  if (!obstacles[ii])
+  // collision
+  else
   {
     float local_density = 0.f;
     t_speed tmp_cell = tmp_cells[ii];
@@ -149,34 +149,37 @@ kernel void collision(global t_speed* cells,
     u[7] = - u_x - u_y;
     u[8] = u_x - u_y;
 
-    float c_sq_2 = 2 * c_sq;
-    float c_sq_2_x2 = c_sq_2 * c_sq;
+    float c_sq_1 = 1 / c_sq;
+    float u_sq_c_sq_2 = u_sq / (2 * c_sq);
+    float c_sq_2_x2_1 = 1 / (2 * c_sq * c_sq);
+    float w1_local_density = w1 * local_density;
+    float w2_local_density = w2 * local_density;
     float d_equ[NSPEEDS];
-    d_equ[0] = w0 * local_density * (1.f - u_sq / c_sq_2);
-    d_equ[1] = w1 * local_density * (1.f + u[1] / c_sq
-                                         + (u[1] * u[1]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[2] = w1 * local_density * (1.f + u[2] / c_sq
-                                         + (u[2] * u[2]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[3] = w1 * local_density * (1.f + u[3] / c_sq
-                                         + (u[3] * u[3]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[4] = w1 * local_density * (1.f + u[4] / c_sq
-                                         + (u[4] * u[4]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[5] = w2 * local_density * (1.f + u[5] / c_sq
-                                         + (u[5] * u[5]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[6] = w2 * local_density * (1.f + u[6] / c_sq
-                                         + (u[6] * u[6]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[7] = w2 * local_density * (1.f + u[7] / c_sq
-                                         + (u[7] * u[7]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
-    d_equ[8] = w2 * local_density * (1.f + u[8] / c_sq
-                                         + (u[8] * u[8]) / c_sq_2_x2
-                                         - u_sq / c_sq_2);
+    d_equ[0] = w0 * local_density * (1.f - u_sq_c_sq_2);
+    d_equ[1] = w1_local_density * (1.f + u[1] * c_sq_1
+                                       + (u[1] * u[1]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[2] = w1_local_density * (1.f + u[2] * c_sq_1
+                                       + (u[2] * u[2]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[3] = w1_local_density * (1.f + u[3] * c_sq_1
+                                       + (u[3] * u[3]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[4] = w1_local_density * (1.f + u[4] * c_sq_1
+                                       + (u[4] * u[4]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[5] = w2_local_density * (1.f + u[5] * c_sq_1
+                                       + (u[5] * u[5]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[6] = w2_local_density * (1.f + u[6] * c_sq_1
+                                       + (u[6] * u[6]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[7] = w2_local_density * (1.f + u[7] * c_sq_1
+                                       + (u[7] * u[7]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
+    d_equ[8] = w2_local_density * (1.f + u[8] * c_sq_1
+                                       + (u[8] * u[8]) * c_sq_2_x2_1
+                                       - u_sq_c_sq_2);
 
     t_speed cell;
     for (int kk = 0; kk < NSPEEDS; kk++)
