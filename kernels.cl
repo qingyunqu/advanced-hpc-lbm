@@ -15,21 +15,17 @@ kernel void accelerate_flow(global float* cells,
     speeds[i] = cells[ii + jj*nx + i*total];
   }
 
-  if (!obstacles[ii + jj* nx]
-      && (speeds[3] - w1) > 0.f
-      && (speeds[6] - w2) > 0.f
-      && (speeds[7] - w2) > 0.f)
-  {
-    speeds[1] += w1;
-    speeds[5] += w2;
-    speeds[8] += w2;
-    speeds[3] -= w1;
-    speeds[6] -= w2;
-    speeds[7] -= w2;
+  float condition = (!obstacles[ii + jj*nx]) && (speeds[3] - w1 > 0.f) && (speeds[6] - w2 > 0.f) && (speeds[7] - w2 > 0.f)
+        ? 1.f : 0.f;
+  speeds[1] += w1 * condition;
+  speeds[5] += w2 * condition;
+  speeds[8] += w2 * condition;
+  speeds[3] -= w1 * condition;
+  speeds[6] -= w2 * condition;
+  speeds[7] -= w2 * condition;
 
-    for(int i = 0; i < NSPEEDS; i++){
-      cells[ii + jj*nx + i*total] = speeds[i];
-    }
+  for(int i = 0; i < NSPEEDS; i++){
+    cells[ii + jj*nx + i*total] = speeds[i];
   }
 }
 
