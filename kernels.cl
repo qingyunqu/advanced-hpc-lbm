@@ -40,8 +40,8 @@ kernel void propagate(global t_speed* cells,
                       global int* obstacles,
                       int nx, int ny)
 {
-  int ii = get_global_id(0);
-  int jj = get_global_id(1);
+  int ii = get_global_id(0) % nx;
+  int jj = get_global_id(0) / nx;
 
   /* determine indices of axis-direction neighbours
   ** respecting periodic boundary conditions (wrap around) */

@@ -313,10 +313,10 @@ int propagate(const t_param params, t_ocl ocl)
   checkError(err, "setting propagate arg 4", __LINE__);
 
   // Enqueue kernel
-  size_t global[2] = {params.nx, params.ny};
-  size_t local[2] = {32, 32};
+  size_t global[1] = {params.nx * params.ny};
+  size_t local[1] = {32};
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate,
-                               2, NULL, global, local, 0, NULL, NULL);
+                               1, NULL, global, local, 0, NULL, NULL);
   checkError(err, "enqueueing propagate kernel", __LINE__);
 
   return EXIT_SUCCESS;
