@@ -188,11 +188,12 @@ int main(int argc, char* argv[])
   /* initialise our data structures and load values from file */
   initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 
+  recells = (float*)malloc(sizeof(float) * params.total * NSPEEDS);
+
   /* iterate for maxIters timesteps */
   gettimeofday(&timstr, NULL);
   tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
 
-  recells = (float*)malloc(sizeof(float) * params.total * NSPEEDS);
   for(int i = 0; i < params.total; i++){
     for(int j = 0; j < NSPEEDS; j++){
       recells[i + j * params.total] = cells[i].speeds[j];
@@ -247,9 +248,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  free(recells);
-  free(av_t);
-
   gettimeofday(&timstr, NULL);
   toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   getrusage(RUSAGE_SELF, &ru);
@@ -266,6 +264,9 @@ int main(int argc, char* argv[])
   printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
   write_values(params, cells, obstacles, av_vels);
   finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels, ocl);
+
+  free(recells);
+  free(av_t);
 
   return EXIT_SUCCESS;
 }
@@ -286,8 +287,6 @@ int accelerate_flow(const t_param params, t_ocl ocl)
   /* compute weighting factors */
   float w1 = params.density * params.accel / 9.0f;
   float w2 = params.density * params.accel / 36.0f;
-  /* modify the 2nd row of the grid */
-  int jj = params.ny - 2;
 
   // Set kernel arguments
   err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells);
@@ -296,14 +295,12 @@ int accelerate_flow(const t_param params, t_ocl ocl)
   checkError(err, "setting accelerate_flow arg 1", __LINE__);
   err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx);
   checkError(err, "setting accelerate_flow arg 2", __LINE__);
-  err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &jj);
+  err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny);
   checkError(err, "setting accelerate_flow arg 3", __LINE__);
   err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &w1);
   checkError(err, "setting accelerate_flow arg 4", __LINE__);
   err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &w2);
   checkError(err, "setting accelerate_flow arg 5", __LINE__);
-  err = clSetKernelArg(ocl.accelerate_flow, 6, sizeof(cl_int), &params.total);
-  checkError(err, "setting accelerate_flow arg 6", __LINE__);
 
   // Enqueue kernel
   size_t global[1] = {params.nx};
@@ -343,11 +340,6 @@ int propagate(const t_param params, t_ocl ocl)
 
 int collision(const t_param params, t_ocl ocl)
 {
-  float c_sq = 1.f / 3.f;
-  float w0 = 4.f / 9.f;
-  float w1 = 1.f / 9.f;
-  float w2 = 1.f / 36.f;
-
   cl_int err;
   err = clSetKernelArg(ocl.collision, 0, sizeof(cl_mem), &ocl.cells);
   checkError(err, "setting collision arg 0", __LINE__);
@@ -359,16 +351,8 @@ int collision(const t_param params, t_ocl ocl)
   checkError(err, "setting collision arg 3", __LINE__);
   err = clSetKernelArg(ocl.collision, 4, sizeof(cl_float), &params.omega);
   checkError(err, "setting collision arg 4", __LINE__);
-  err = clSetKernelArg(ocl.collision, 5, sizeof(cl_float), &c_sq);
+  err = clSetKernelArg(ocl.collision, 5, sizeof(cl_int), &params.total);
   checkError(err, "setting collision arg 5", __LINE__);
-  err = clSetKernelArg(ocl.collision, 6, sizeof(cl_float), &w0);
-  checkError(err, "setting collision arg 6", __LINE__);
-  err = clSetKernelArg(ocl.collision, 7, sizeof(cl_float), &w1);
-  checkError(err, "setting collision arg 7", __LINE__);
-  err = clSetKernelArg(ocl.collision, 8, sizeof(cl_float), &w2);
-  checkError(err, "setting collision arg 8", __LINE__);
-  err = clSetKernelArg(ocl.collision, 9, sizeof(cl_int), &params.total);
-  checkError(err, "setting collision arg 9", __LINE__);
 
   size_t global[1] = {params.nx * params.ny};
   size_t local[1] = {32};

@@ -4,11 +4,13 @@
 
 kernel void accelerate_flow(global float* cells,
                             global int* obstacles,
-                            int nx, int jj,
-                            float w1, float w2,
-                            int total)
+                            int nx, int ny,
+                            float w1, float w2)
 {
   int ii = get_global_id(0);
+  /* modify the 2nd row of the grid */
+  int jj = ny - 2;
+  int total = nx * ny;
 
   float speeds[NSPEEDS];
   for(int i = 0; i < NSPEEDS; i++){
@@ -63,8 +65,7 @@ kernel void collision(global float* cells,
                       global float* tmp_cells,
                       global int* obstacles,
                       int nx, float omega,
-                      float c_sq, float w0,
-                      float w1, float w2, int total)
+                      int total)
 {
   int ii = get_global_id(0);
 
@@ -93,6 +94,11 @@ kernel void collision(global float* cells,
   // collision
   else
   {
+    float c_sq = 1.f / 3.f;
+    float w0 = 4.f / 9.f;
+    float w1 = 1.f / 9.f;
+    float w2 = 1.f / 36.f;
+
     float tmp_speeds[NSPEEDS];
     for(int i = 0; i < NSPEEDS; i++){
         tmp_speeds[i] = tmp_cells[ii + i*total];
