@@ -11,13 +11,19 @@ kernel void accelerate_flow(global float* cells,
   /* modify the 2nd row of the grid */
   int jj = ny - 2;
   int total = nx * ny;
+  int idx = ii + jj * nx;
+  int idx1 = ii + nx / 2 + jj * nx;
 
   float speeds[NSPEEDS];
+  float speeds1[NSPEEDS];
   for(int i = 0; i < NSPEEDS; i++){
-    speeds[i] = cells[ii + jj*nx + i*total];
+    speeds[i] = cells[idx + i*total];
+    speeds1[i] = cells[idx1 + i*total];
   }
 
-  float condition = (!obstacles[ii + jj*nx]) && (speeds[3] - w1 > 0.f) && (speeds[6] - w2 > 0.f) && (speeds[7] - w2 > 0.f)
+  float condition = (!obstacles[idx]) && (speeds[3]-w1>0.f) && (speeds[6]-w2>0.f) && (speeds[7]-w2>0.f)
+        ? 1.f : 0.f;
+  float condition1 = (!obstacles[idx1]) && (speeds1[3]-w1>0.f) && (speeds1[6]-w2>0.f) && (speeds1[7]-w2>0.f)
         ? 1.f : 0.f;
   speeds[1] += w1 * condition;
   speeds[5] += w2 * condition;
@@ -25,9 +31,16 @@ kernel void accelerate_flow(global float* cells,
   speeds[3] -= w1 * condition;
   speeds[6] -= w2 * condition;
   speeds[7] -= w2 * condition;
+  speeds1[1] += w1 * condition1;
+  speeds1[5] += w2 * condition1;
+  speeds1[8] += w2 * condition1;
+  speeds1[3] -= w1 * condition1;
+  speeds1[6] -= w2 * condition1;
+  speeds1[7] -= w2 * condition1;
 
   for(int i = 0; i < NSPEEDS; i++){
-    cells[ii + jj*nx + i*total] = speeds[i];
+    cells[idx + i*total] = speeds[i];
+    cells[idx1 + i*total] = speeds1[i];
   }
 }
 
@@ -109,19 +122,11 @@ kernel void collision(global float* cells,
     {
       local_density += tmp_speeds[kk];
     }
-    float u_x = (tmp_speeds[1]
-                 + tmp_speeds[5]
-                 + tmp_speeds[8]
-                 - (tmp_speeds[3]
-                    + tmp_speeds[6]
-                    + tmp_speeds[7]))
+    float u_x = (tmp_speeds[1] + tmp_speeds[5] + tmp_speeds[8]
+                 - (tmp_speeds[3] + tmp_speeds[6] + tmp_speeds[7]))
                 / local_density;
-    float u_y = (tmp_speeds[2]
-                 + tmp_speeds[5]
-                 + tmp_speeds[6]
-                 - (tmp_speeds[4]
-                    + tmp_speeds[7]
-                    + tmp_speeds[8]))
+    float u_y = (tmp_speeds[2] + tmp_speeds[5] + tmp_speeds[6]
+                 - (tmp_speeds[4] + tmp_speeds[7] + tmp_speeds[8]))
                  / local_density;
     float u_sq = u_x * u_x + u_y * u_y;
 
@@ -142,30 +147,14 @@ kernel void collision(global float* cells,
     float w2_local_density = w2 * local_density;
     float d_equ[NSPEEDS];
     d_equ[0] = w0 * local_density * (1.f - u_sq_c_sq_2);
-    d_equ[1] = w1_local_density * (1.f + u[1] * c_sq_1
-                                       + (u[1] * u[1]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[2] = w1_local_density * (1.f + u[2] * c_sq_1
-                                       + (u[2] * u[2]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[3] = w1_local_density * (1.f + u[3] * c_sq_1
-                                       + (u[3] * u[3]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[4] = w1_local_density * (1.f + u[4] * c_sq_1
-                                       + (u[4] * u[4]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[5] = w2_local_density * (1.f + u[5] * c_sq_1
-                                       + (u[5] * u[5]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[6] = w2_local_density * (1.f + u[6] * c_sq_1
-                                       + (u[6] * u[6]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[7] = w2_local_density * (1.f + u[7] * c_sq_1
-                                       + (u[7] * u[7]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
-    d_equ[8] = w2_local_density * (1.f + u[8] * c_sq_1
-                                       + (u[8] * u[8]) * c_sq_2_x2_1
-                                       - u_sq_c_sq_2);
+    d_equ[1] = w1_local_density * (1.f + u[1] * c_sq_1 + (u[1] * u[1]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[2] = w1_local_density * (1.f + u[2] * c_sq_1 + (u[2] * u[2]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[3] = w1_local_density * (1.f + u[3] * c_sq_1 + (u[3] * u[3]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[4] = w1_local_density * (1.f + u[4] * c_sq_1 + (u[4] * u[4]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[5] = w2_local_density * (1.f + u[5] * c_sq_1 + (u[5] * u[5]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[6] = w2_local_density * (1.f + u[6] * c_sq_1 + (u[6] * u[6]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[7] = w2_local_density * (1.f + u[7] * c_sq_1 + (u[7] * u[7]) * c_sq_2_x2_1 - u_sq_c_sq_2);
+    d_equ[8] = w2_local_density * (1.f + u[8] * c_sq_1 + (u[8] * u[8]) * c_sq_2_x2_1 - u_sq_c_sq_2);
 
     float speeds[NSPEEDS];
     for (int kk = 0; kk < NSPEEDS; kk++)
@@ -208,19 +197,11 @@ kernel void av_velocity(global float* cells,
     {
       local_density += speeds[kk];
     }
-    float u_x = (speeds[1]
-                 + speeds[5]
-                 + speeds[8]
-                 - (speeds[3]
-                    + speeds[6]
-                    + speeds[7]))
+    float u_x = (speeds[1] + speeds[5] + speeds[8]
+                 - (speeds[3] + speeds[6] + speeds[7]))
                 / local_density;
-    float u_y = (speeds[2]
-                 + speeds[5]
-                 + speeds[6]
-                 - (speeds[4]
-                    + speeds[7]
-                    + speeds[8]))
+    float u_y = (speeds[2] + speeds[5] + speeds[6]
+                 - (speeds[4] + speeds[7] + speeds[8]))
                 / local_density;
     local_sum[local_id * 2] = sqrt((u_x * u_x) + (u_y * u_y));
     local_sum[local_id * 2 + 1] = 1.f;

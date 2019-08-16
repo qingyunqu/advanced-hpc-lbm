@@ -303,7 +303,7 @@ int accelerate_flow(const t_param params, t_ocl ocl)
   checkError(err, "setting accelerate_flow arg 5", __LINE__);
 
   // Enqueue kernel
-  size_t global[1] = {params.nx};
+  size_t global[1] = {params.nx / 2};
   size_t local[1] = {32};
   err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow,
                                1, NULL, global, local, 0, NULL, NULL);
